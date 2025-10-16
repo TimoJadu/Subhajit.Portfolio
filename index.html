@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subhajit Ghosh - AI/Solution Architect Portfolio</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Three.js (required for 3D graphics) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // --- Single Place Theme Configuration (CRITICAL) ---
+        // This is the primary definition of THEME_CONFIG
+        const THEME_CONFIG = {
+            darkModeClass: 'dark', // The class added to the <html> tag for dark mode
+            localStorageKey: 'theme-preference', // The key used to save the preference
+            lightThemeValue: 'light',
+            darkThemeValue: 'dark',
+            primaryFont: 'Georgia, serif', // Defined font style here
+            darkBgColor: 0x0a0a0a, // Three.js Hex for background (Very Dark Grey / Black)
+            lightBgColor: 0xe5e7eb, // Three.js Hex for background (Light Grey - Tailwind gray-200)
+        };
+        // ---------------------------------------------------
+        
+        // Configure Tailwind for Dark Mode (class strategy) 
+        tailwind.config = {
+            darkMode: 'class', 
+        }
+    </script>
+    
+    <style>
+        /* --- FONT & BASE STYLES --- */
+        /* Use CSS Variable for font based on THEME_CONFIG */
+        :root {
+            --primary-font: Georgia, serif; 
+            /* Default scale for the hero background image */
+            --bg-scale: 1.1; 
+        }
+        body {
+            font-family: var(--primary-font);
+        }
+
+        /* Custom CSS to ensure the canvas covers the full background */
+        #three-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place behind all content */
+            display: block;
+        }
+        
+        /* Custom scrollbar styling for a cleaner look */
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+        /* Scrollbar thumb color adapts to theme */
+        body::-webkit-scrollbar-thumb {
+            background-color: #3b82f6; 
+            border-radius: 4px;
+        }
+        html.dark body::-webkit-scrollbar-track {
+            background: #000000; /* Black track in dark mode */
+        }
+        html:not(.dark) body::-webkit-scrollbar-track {
+            background: #f3f4f6; /* Light grey track in light mode */
+        }
+        
+        /* Style for the content containers - Adjusted for dark/light mode transition */
+        .content-section {
+            /* Light Mode Default: White with slight transparency, light border */
+            background-color: rgba(255, 255, 255, 0.95); 
+            border: 1px solid #d1d5db; 
+            
+            backdrop-filter: blur(5px);
+            transition: background-color 0.5s, border-color 0.5s;
+        }
+        
+        /* Dark mode specific override for content section */
+        html.dark .content-section {
+            /* Dark Mode: Darker Grey backdrop with slight transparency, dark border */
+            background-color: rgba(31, 41, 55, 0.95); 
+            border: 1px solid #374151; 
+        }
+
+        /* Hero Background Styling */
+        #hero-with-image {
+            /* Using uploaded image for hero background */
+            background-image: url('molecular_structure.png'); 
+            background-color: #0d1217; 
+            background-size: cover;
+            background-position: center 30%; 
+            transform: scale(var(--bg-scale));
+            transition: transform 0.1s linear; 
+        }
+
+        /* Overlay opacity control - adapts for contrast */
+        #hero-with-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            /* Lighter overlay in light mode, darker in dark mode for image contrast */
+            background-color: rgba(255, 255, 255, 0.3); 
+            z-index: 1; 
+            transition: background-color 0.5s;
+        }
+        
+        html.dark #hero-with-image::before {
+            background-color: rgba(0, 0, 0, 0.6); /* Use black/dark overlay for image contrast in dark mode */
+        }
+
+        /* Hero container styling */
+        .hero-container {
+            position: relative;
+            height: 55vh; 
+            overflow: hidden; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #hero-content {
+            z-index: 2; /* Ensure content is above the overlay */
+        }
+        
+        /* Custom styling for achievement cards in the carousel */
+        .achievement-card {
+            /* Light Mode Default */
+            padding: 1.5rem;
+            min-height: 20rem; /* Ensures consistent card height */
+            display: flex;
+            flex-direction: column;
+            background-color: #f3f4f6; 
+            border: 1px solid #d1d5db; 
+            transition: background-color 0.5s, border-color 0.5s;
+        }
+        
+        /* Dark Mode Override */
+        html.dark .achievement-card {
+            background-color: #1F2937; 
+            border: 1px solid #374151; 
+        }
+
+        /*
+         * NOTE: Previous custom CSS overrides for hero text colors are removed.
+         * We rely solely on responsive Tailwind classes in the HTML now.
+         */
+        
+    </style>
+</head>
+
+<!-- BODY CLASS: Sets light grey background by default, switches to dark grey (almost black) in dark mode. 
+     The text color is set here: text-gray-900 (dark) default, dark:text-gray-50 (light) for dark mode. This class handles most of the text globally. -->
+<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-50 transition-colors duration-500">
+
+    <!-- 3D Canvas Container -->
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Main Content Wrapper -->
+    <div id="content-wrapper" class="relative z-10 min-h-screen">
+        
+        <!-- Header/Hero Section - Critical z-index for stickiness -->
+        <header class="sticky top-0 shadow-xl py-4 px-6 md:px-12 z-50 backdrop-blur-md 
+                       bg-white/90 dark:bg-gray-800/90 
+                       border-b border-gray-200 dark:border-gray-700 transition-colors duration-500">
+            <nav class="max-w-7xl mx-auto flex justify-between items-center">
+                <!-- Profile Picture and Name -->
+                <div class="flex items-center space-x-3">
+                    <img src="profile.png" alt="Subhajit Ghosh Profile Picture" 
+                         onerror="this.onerror=null;this.src='https://placehold.co/40x40/3b82f6/ffffff?text=SG'"
+                         class="w-10 h-10 rounded-full object-cover border-2 border-blue-400 shadow-md">
+                    
+                    <!-- Title color is constant blue, so it's fine -->
+                    <h1 class="text-2xl font-extrabold text-blue-600 dark:text-blue-400 tracking-wide transition-colors">Subhajit Ghosh</h1>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Navigation Links - FIXED -->
+                    <div class="space-x-4 hidden sm:flex">
+                        <a href="#about" class="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">Summary</a>
+						<a href="#projects" class="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">Achievements</a>
+                        <a href="#experience" class="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">Experience</a>                        
+                        <a href="#education" class="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">Education</a>
+                    </div>
+
+                    <!-- Theme Switch Buttons -->
+                    <div class="flex space-x-2">
+                        <!-- Light Theme Button -->
+                        <button id="light-theme-btn"
+                            aria-label="Activate Light Theme"
+                            class="p-2 rounded-full transition-all duration-300
+                                    bg-gray-200 hover:bg-gray-300 text-yellow-600
+                                    dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-400
+                                    shadow-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                            <!-- Sun Icon (Lucide style SVG) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                                <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dark Theme Button -->
+                        <button id="dark-theme-btn"
+                            aria-label="Activate Dark Theme"
+                            class="p-2 rounded-full transition-all duration-300
+                                    bg-gray-200 hover:bg-gray-300 text-blue-600
+                                    dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-400
+                                    shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <!-- Moon Icon (Lucide style SVG) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Hero Banner -->
+        <section class="hero-container">
+            <div id="hero-with-image" class="absolute inset-0"></div> 
+            <div id="hero-content" class="content-section p-8 sm:p-12 rounded-xl shadow-2xl max-w-4xl relative">
+                <!-- Heading color is handled by the overall body text color, but explicit classes ensure perfect contrast -->
+                <h2 class="text-4xl sm:text-6xl font-bold mb-4 tracking-tight text-gray-800 dark:text-gray-50 transition-colors">Manager | AI & Solutions</h2>
+                
+                <!-- PARAGRAPH TEXT FIX: Applied high-contrast responsive classes -->
+                <p class="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-8 transition-colors">
+                    Strategic leader with 14 years in Enterprise Solution Architecture, AI/ML Engineering, and End-to-End Product Development. M.S. in Data Science.
+                </p>
+                <a href="#experience" class="inline-block px-8 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 transition transform hover:scale-105">View Key Experience</a>
+            </div>
+        </section>
+
+        <!-- About Section (Summary) -->
+        <section id="about" class="py-24 px-6 md:px-12 max-w-6xl mx-auto">
+            <div class="content-section p-8 md:p-16 rounded-xl shadow-2xl">
+                <h3 class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-6 border-b border-blue-500 dark:border-blue-700 pb-2 transition-colors">Summary & Strategic Focus</h3>
+                <!-- MAIN SUMMARY PARAGRAPH - Already using responsive classes -->
+                <p class="text-lg text-gray-700 dark:text-gray-300 leading-relaxed transition-colors">
+                    A strategic and results-oriented technical leader with 14 years of experience in enterprise solution architecture, full-stack development, and AI engineering. Proven ability to lead cross-functional teams in designing and deploying complex, scalable systems that integrate advanced AI/ML capabilities to solve critical business challenges. Currently a Manager at Novartis, adept at translating complex business requirements into robust technical solutions and mentoring teams to drive innovation and efficiency. Possesses a Master's degree in Data Science.
+                </p>
+                <div class="mt-10">
+                    <h4 class="text-3xl font-semibold text-gray-900 dark:text-white mb-4 transition-colors">Core Competencies:</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <!-- Card 1 - Description text already using responsive classes -->
+                        <div class="p-4 rounded-lg shadow-md border-t-2 border-yellow-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                            <p class="font-bold text-lg text-yellow-600 dark:text-yellow-400 transition-colors">Architecture</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Microservices, Distributed Systems, Design Patterns, Scalability</p>
+                        </div>
+                        <!-- Card 2 - Description text already using responsive classes -->
+                        <div class="p-4 rounded-lg shadow-md border-t-2 border-red-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                            <p class="font-bold text-lg text-red-600 dark:text-red-400 transition-colors">AI/ML</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">LLMs, Generative AI, PyTorch/Scikit, Predictive Modeling</p>
+                        </div>
+                        <!-- Card 3 - Description text already using responsive classes -->
+                        <div class="p-4 rounded-lg shadow-md border-t-2 border-green-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                            <p class="font-bold text-lg text-green-600 dark:text-green-400 transition-colors">Data & Product</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Data Pipelines, ETL, End-to-End App Dev, Python, C#, JS</p>
+                        </div>
+                        <!-- Card 4 - Description text already using responsive classes -->
+                        <div class="p-4 rounded-lg shadow-md border-t-2 border-purple-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                            <p class="font-bold text-lg text-purple-600 dark:text-purple-400 transition-colors">Leadership</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Strategy, Stakeholder Engagement, Cross-Functional Team Mentoring</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+		
+		
+		<!-- Projects Section (Specific Achievements) -->
+        <section id="projects" class="py-24 px-6 md:px-12 max-w-6xl mx-auto">
+            <div class="content-section p-8 md:p-16 rounded-xl shadow-2xl">
+                <h3 class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-8 border-b border-blue-500 dark:border-blue-700 pb-2 transition-colors">Key Achievements & Recognition</h3>
+                
+                <div id="carousel-container" class="relative">
+                    
+                    <!-- Navigation Arrows (Colors are fine as they are blue/white) -->
+                    <button id="prev-achievement" class="absolute z-30 top-1/2 -left-4 transform -translate-y-1/2 p-3 bg-blue-600 dark:bg-blue-700 rounded-full shadow-lg hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 transition" onclick="moveSlider(-1)">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <button id="next-achievement" class="absolute z-30 top-1/2 -right-4 transform -translate-y-1/2 p-3 bg-blue-600 dark:bg-blue-700 rounded-full shadow-lg hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 transition" onclick="moveSlider(1)">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                    
+                    <!-- Carousel Viewport -->
+                    <div id="achievement-viewport" class="overflow-hidden">
+                        
+                        <!-- Track that moves all cards -->
+                        <div id="achievement-track" class="flex items-stretch transition-transform duration-500">
+                            
+                            <!-- Card Wrapper 1: Novartis AI/KM -->
+                            <div class="card-slide w-full md:w-1/2 flex-shrink-0 p-2">
+                                <div class="achievement-card hover:border-blue-500 transition">
+                                    <div class="flex-grow"> 
+                                        <h4 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center transition-colors">
+                                             <!-- <svg class="w-6 h-6 mr-2 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg> -->
+                                             Literature Platform (Novartis)
+                                        </h4>
+                                        <!-- Card description paragraph already using responsive classes -->
+                                        <p id="project-1-description" class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+                                            I serve as the primary owner of the NKC enterprise and Opt-in solutions, providing ongoing guidance and mentorship to NKC internal team members, including senior technical and business managers. I regularly deliver tailored business and technical solutions and proactively resolve critical challenges reported by the team.
+                                        </p>
+                                        <!-- API output text uses responsive classes -->
+                                        <div id="overview-output" class="hidden mt-4 p-4 border border-pink-500 bg-gray-100 dark:bg-gray-900 rounded-lg text-sm leading-relaxed whitespace-pre-line text-gray-800 dark:text-gray-200 transition-colors"></div>
+                                    </div>
+                                    <a id="generate-overview-btn" class="w-full mt-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition transform hover:scale-[1.02] disabled:bg-blue-800 disabled:cursor-not-allowed" href="https://urldefense.com/v3/__https://go/NKC/__;!!N3hqHg43uw!vcZAGuCptabHDGQQvyTth92hehX7pFIMmBT2dEM3BjxF6OPbVipQFHnrf3KTu3r1dV2l78e_uv0u95Ljr_yJqTQOY3mAP2Ykjw$" target="_blank">
+                                        ✨ go/NKC
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Card Wrapper 2: Novartis AI/KM -->
+                            <div class="card-slide w-full md:w-1/2 flex-shrink-0 p-2">
+                                <div class="achievement-card hover:border-blue-500 transition">
+                                    <div class="flex-grow"> 
+                                        <h4 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center transition-colors">
+                                             <!-- <svg class="w-6 h-6 mr-2 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg> -->
+                                             Chemical Naming Platform (Novartis)
+                                        </h4>
+                                        <!-- Card description paragraph already using responsive classes -->
+                                        <p id="project-1-description" class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+                                            End-to-end development of a molecule project to validate the chemical naming process. The product helps the chemist team to validate complex chemical names with proper molecular details and visualization.
+                                        </p>
+                                        <!-- API output text uses responsive classes -->
+                                        <div id="overview-output" class="hidden mt-4 p-4 border border-pink-500 bg-gray-100 dark:bg-gray-900 rounded-lg text-sm leading-relaxed whitespace-pre-line text-gray-800 dark:text-gray-200 transition-colors"></div>
+                                    </div>
+                                    <a id="generate-overview-btn" class="w-full mt-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition transform hover:scale-[1.02] disabled:bg-blue-800 disabled:cursor-not-allowed" href="https://urldefense.com/v3/__https://go/chemicalname/__;!!N3hqHg43uw!vcZAGuCptabHDGQQvyTth92hehX7pFIMmBT2dEM3BjxF6OPbVipQFHnrf3KTu3r1dV2l78e_uv0u95Ljr_yJqTQOY3lEJVl_yQ$" target="_blank">
+                                        ✨ go/chemicalname
+                                    </a>
+                                </div>
+                            </div>
+							
+							<!-- Card Wrapper 3: Security Vulnerability Management -->
+							<div class="card-slide w-full md:w-1/2 flex-shrink-0 p-2">
+							  <div class="achievement-card hover:border-blue-500 transition">
+								<div class="flex-grow">
+								  <h4 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center transition-colors">
+									DDIT Security Vulnerability Management & Cloud Migration (Novartis)
+								  </h4>
+								  <p class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+									I worked collaboratively with the DDIT procurement and cloud infrastructure teams to implement a security vulnerability management system, resulting in a 60% improvement within one year.
+								  </p>
+								  <p class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+									I provide strategic guidance to the technical, cloud, and DDIT teams, ensuring that our designs and scalable solutions consistently align with overarching business objectives.
+								  </p>
+								  <div class="hidden mt-4 p-4 border border-pink-500 bg-gray-100 dark:bg-gray-900 rounded-lg text-sm leading-relaxed whitespace-pre-line text-gray-800 dark:text-gray-200 transition-colors"></div>
+								</div>
+								
+							  </div>
+							</div>
+                            
+                            <!-- Card Wrapper 2: Financial & Recognition Impact -->
+                            <div class="card-slide w-full md:w-1/2 flex-shrink-0 p-2">
+                                <div class="achievement-card hover:border-blue-500 transition">
+                                    <div class="flex-grow">
+                                         <h4 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center transition-colors">
+                                            <svg class="w-6 h-6 mr-2 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.485 0-4.5 2.015-4.5 4.5s2.015 4.5 4.5 4.5 4.5-2.015 4.5-4.5-2.015-4.5-4.5-4.5zm0 0V5m0 3v4.5m-4.5 0h9m0 0H8m4.5 0c.276 0 .5-.224.5-.5s-.224-.5-.5-.5-.5.224-.5.5.224.5.5.5z"></path></svg>
+                                            High-Volume Transaction Platform Lead (Planet Payment)
+                                        </h4>
+                                        <!-- Card description paragraph already using responsive classes -->
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+                                            At Planet Payment, I successfully enabled the platform to accommodate high transaction volumes with enhanced reliability and scalability, supporting business growth and improving overall system performance. 
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Card Wrapper 3: Microservices & E-commerce Scale (HCL) -->
+                            <div class="card-slide w-full md:w-1/2 flex-shrink-0 p-2">
+                                <div class="achievement-card hover:border-blue-500 transition">
+                                    <div class="flex-grow">
+                                        <h4 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center transition-colors">
+                                            <svg class="w-6 h-6 mr-2 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.82 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.82 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.82-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.82-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            Microservices & E-commerce Scale (Intel India)
+                                        </h4>
+                                        <!-- Card description paragraph already using responsive classes -->
+                                        <p class="text-gray-600 dark:text-gray-400 mb-4 transition-colors">
+                                            Led solution architecture for Intel's Global E-commerce Platform modernization. Designed and implemented a resilient, scalable microservices architecture resulting in a 35% increase in online traffic post-launch.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experience Section -->
+        <section id="experience" class="py-24 px-6 md:px-12 max-w-6xl mx-auto">
+            <div class="content-section p-8 md:p-16 rounded-xl shadow-2xl">
+                <h3 class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-8 border-b border-blue-500 dark:border-blue-700 pb-2 transition-colors">Professional Experience</h3>
+                
+                <!-- Parent DIV sets the color for all list items and text blocks below it -->
+                <div class="space-y-12 text-gray-700 dark:text-gray-300 transition-colors">
+
+                    <!-- Job 1: Novartis -->
+					<div class="border-l-4 border-blue-600 pl-6">
+					  <div class="flex justify-between items-start">
+						<h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">MANAGER</h4>
+						<p class="text-sm text-gray-500 dark:text-gray-400 font-medium transition-colors">OCT 2021 – CURRENT</p>
+					  </div>
+					  <p class="text-blue-600 dark:text-blue-400 text-lg mb-4 transition-colors">NOVARTIS</p>
+
+					  <p class="text-gray-700 dark:text-gray-300 transition-colors mb-3">
+						As a Manager within Novartis, I lead teams in architecting and delivering high-impact data and AI solutions that align with strategic business objectives.
+					  </p>
+
+					  <!-- Prototyping & End-to-End Product Building -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Prototyping & End-to-End Product Building:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Architected and led the development of centralized Knowledge Management platforms for innovative medicines, designing microservice-based systems to ensure scalability and performance. This initiative aligns with the principles of creating comprehensive solution blueprints for enterprise environments. The platforms are used by thousands of Novartis employees daily. [go/NKCPortal-Metric]</li>
+						<li>Achieved a 50% performance enhancement through strategic optimization, system redesign, and cross-team management, demonstrating a focus on creating efficient, enterprise-scale systems.</li>
+						<li>End-to-end development of a molecule project to validate the chemical naming process. [go/chemicalname]</li>
+					  </ul>
+
+					  <!-- Business & Technical Leadership -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Business & Technical Leadership:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>I serve as the primary owner of the NKC enterprise and Opt-in solutions, providing ongoing guidance and mentorship to NKC internal team members, including senior technical and business managers. I regularly deliver tailored business and technical solutions and proactively resolve critical challenges reported by the team. [go/NKC]</li>
+						<li>NKC Portal 2 is currently the highest priority initiative for NKC, structured across multiple workstreams. Having supported the main Portal application for the past several years, I contribute essential ideas and system insights to the Portal 2 upgrade, leveraging my in-depth knowledge of the existing system. [go/NMH-Dashboard]</li>
+						<li>I work in close collaboration with SteerCo team members to translate complex business requirements into effective, actionable solutions.</li>
+						<li>I worked collaboratively with the DDIT procurement and cloud infrastructure teams to implement a security vulnerability management system, resulting in a 60% improvement within one year. [Mention the diagram]</li>
+						<li>I provide strategic guidance to the technical, cloud, and DDIT teams, ensuring that our designs and scalable solutions consistently align with overarching business objectives.</li>
+					  </ul>
+
+					  <!-- AI Engineering and Automation -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">AI Engineering and Automation:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Over the past four years, I have developed the highest number of unique, innovative e-Library solutions and proofs of concept relevant to business needs.</li>
+						<li>Built the AI Assistant Chat App (POC) in 2023, showcasing the capabilities of large language models (LLMs) at a time when the internal ChatGPT tool was unavailable.</li>
+						<li>I secured second place in the AI Innovation 2025 Challenge.</li>
+						<li>I created a Machine Learning model to reduce human effort by 40% in predictive literature search.</li>
+					  </ul>
+					</div>
+
+                    <!-- Job 2: Planet Payment Group Holdings LT -->
+					<div class="border-l-4 border-blue-600 pl-6">
+					  <div class="flex justify-between items-start">
+						<h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">APPLICATION DEVELOPER</h4>
+						<p class="text-sm text-gray-500 dark:text-gray-400 font-medium transition-colors">NOV 2018 – OCT 2021</p>
+					  </div>
+					  <p class="text-blue-600 dark:text-blue-400 text-lg mb-4 transition-colors">PLANET PAYMENT GROUP HOLDINGS LT</p>
+
+					  <!-- Distributed Backend Payment System Design and Development -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Distributed Backend Payment System Design and Development:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Situation: Tasked with addressing the demands of a rapidly growing payment platform that required processing between 60,000 and 150,000 transactions daily across diverse business channels.</li>
+						<li>Task: Lead the design and development of robust, distributed backend systems to ensure reliable, scalable, and high-performance transaction processing.</li>
+						<li>Action: Spearheaded the end-to-end architecture and implementation of three core systems: currency conversion, merchant transaction processing, and card transaction management. Leveraged distributed system principles, optimized data flows, and ensured seamless integration for each subsystem to deliver operational efficiency and resilience.</li>
+						<li>Result: Successfully enabled the platform to accommodate high transaction volumes with enhanced reliability and scalability, supporting business growth and improving overall system performance.</li>
+					  </ul>
+
+					  <!-- Redesigned System Architecture for Enterprise Scalability -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Redesigned System Architecture for Enterprise Scalability:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Led the re-architecture of core digital payment systems by implementing a distributed systems approach and optimizing database performance to address scalability challenges.</li>
+						<li>Result: Improved application response time by 60% and increased user capacity by 55%, ensuring the platform could support long-term organizational goals.</li>
+					  </ul>
+
+					  <!-- Achievement -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Achievement:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Worked as a technical lead for various critical systems.</li>
+					  </ul>
+					</div>
+
+                    <!-- Job 3: HCL Technologies Ltd (Intel India) -->
+					<div class="border-l-4 border-blue-600 pl-6">
+					  <div class="flex justify-between items-start">
+						<h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">TECHNICAL LEAD</h4>
+						<p class="text-sm text-gray-500 dark:text-gray-400 font-medium transition-colors">MAY 2016 – AUG 2017</p>
+					  </div>
+					  <p class="text-blue-600 dark:text-blue-400 text-lg mb-4 transition-colors">HCL TECHNOLOGIES LTD (INTEL INDIA)</p>
+
+					  <!-- Led Solution Architecture for Intel's Global E-commerce Platform -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Led Solution Architecture for Intel's Global E-commerce Platform:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Directed the technical design and solution architecture for the modernization of Intel's global e-commerce site, focusing on scalability, customer experience, and business growth. [https://www.intel.com]</li>
+						<li>Designed and implemented a resilient, scalable microservices architecture to handle high traffic volumes and complex business logic.</li>
+						<li>Result: The successful launch resulted in a 35% increase in online traffic in the first quarter, demonstrating the ability to design and deliver high-value enterprise systems.</li>
+					  </ul>
+
+					  <!-- Achievement -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Achievement:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Received “HCL Spot Award” for contribution to the development and project management work.</li>
+					  </ul>
+					</div>
+
+                    <!-- Job 4: Cognizant Technology Solutions -->
+					<div class="border-l-4 border-blue-600 pl-6">
+					  <div class="flex justify-between items-start">
+						<h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">ASSOCIATE-PROJECTS</h4>
+						<p class="text-sm text-gray-500 dark:text-gray-400 font-medium transition-colors">JAN 2011 – OCT 2015</p>
+					  </div>
+					  <p class="text-blue-600 dark:text-blue-400 text-lg mb-4 transition-colors">COGNIZANT TECHNOLOGY SOLUTIONS</p>
+
+					  <!-- Security Management System & Risk Analysis -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Security Management System & Risk Analysis:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Worked on a financial security system and built features as per business requirements. Translated business requirements and mathematical derivations into technical implementations.</li>
+					  </ul>
+
+					  <!-- Achievement -->
+					  <p class="font-semibold text-gray-900 dark:text-white transition-colors mt-4">Achievement:</p>
+					  <ul class="list-disc list-inside mt-2 space-y-3 ml-4 text-gray-700 dark:text-gray-300 transition-colors">
+						<li>Received “Dream-team Award” twice for contributions to design and development.</li>
+					  </ul>
+					</div>
+
+                </div>
+            </div>
+        </section>
+        
+        <!-- Education Section -->
+        <section id="education" class="py-24 px-6 md:px-12 max-w-6xl mx-auto">
+             <div class="content-section p-8 md:p-16 rounded-xl shadow-2xl">
+                <h3 class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-8 border-b border-blue-500 dark:border-blue-700 pb-2 transition-colors">Education & Interests</h3>
+                <!-- Parent DIV sets the color for list/paragraph text below it -->
+                <div class="grid md:grid-cols-2 gap-8 text-gray-700 dark:text-gray-300 transition-colors">
+                    <!-- Education -->
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">Academic Background</h4>
+                        <div class="space-y-4">
+                             <!-- Card 1 - Text colors already using responsive classes -->
+                             <div class="p-4 rounded-lg border-l-4 border-yellow-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                                <p class="text-xl font-bold text-gray-900 dark:text-white transition-colors">Master of Science in Data Science & Analytics</p>
+                                <p class="text-lg text-gray-700 dark:text-gray-300 transition-colors">Maynooth University, Ireland</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors">Sep 2017 – Aug 2018</p>
+                            </div>
+                            <!-- Card 2 - Text colors already using responsive classes -->
+                            <div class="p-4 rounded-lg border-l-4 border-yellow-500 bg-gray-200 dark:bg-gray-800 transition-colors">
+                                <p class="text-xl font-bold text-gray-900 dark:text-white transition-colors">B.Tech in Electronics & Communication</p>
+                                <p class="text-lg text-gray-700 dark:text-gray-300 transition-colors">WBUT University</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors">Aug 2006 – Aug 2010</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Interests -->
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-900 dark:text-white transition-colors">Personal Interests</h4>
+                        <!-- List items inherit text color from parent DIV -->
+                        <div class="space-y-4 text-lg">
+                            <p class="flex items-center"><span class="text-blue-600 dark:text-blue-400 mr-3 transition-colors">♪</span> Music & Composition</p>
+                            <p class="flex items-center"><span class="text-blue-600 dark:text-blue-400 mr-3 transition-colors">👨‍🏫</span> Tutoring & Mentoring (Mathematics, programming)</p>
+                            <p class="flex items-center"><span class="text-blue-600 dark:text-blue-400 mr-3 transition-colors">🌍</span> Exploring Countries & Cultures</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="bg-gray-200 dark:bg-gray-900 text-center py-8 mt-12 border-t border-gray-300 dark:border-gray-700 transition-colors">
+            <!-- Footer text already using responsive classes -->
+            <p class="text-gray-600 dark:text-gray-500 text-sm transition-colors">&copy; <span id="current-year"></span> Subhajit Ghosh Portfolio. </p>
+            <div class="mt-4 space-x-4 text-gray-600 dark:text-gray-400 transition-colors">
+                <a href="mailto:Subhajit-1.ghosh@novartis.com" class="hover:text-blue-600 dark:hover:text-blue-400 transition">Email</a>
+                <a href="https://urldefense.com/v3/__https://www.linkedin.com/in/subha-subhajit-ghosh/__;!!N3hqHg43uw!vcZAGuCptabHDGQQvyTth92hehX7pFIMmBT2dEM3BjxF6OPbVipQFHnrf3KTu3r1dV2l78e_uv0u95Ljr_yJqTQOY3kyQGyp6w$" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400 transition">LinkedIn</a>
+                <a href="tel:0899429597" class="hover:text-blue-600 dark:hover:text-blue-400 transition">Phone</a>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        // NOTE: The THEME_CONFIG is declared once in the <head> script block and is globally available.
+        // We removed the duplicate declaration here to fix the "Identifier 'THEME_CONFIG' has already been declared" error.
+        
+        let scene, camera, renderer, molecule; // Global Three.js variables
+        const htmlEl = document.documentElement; // Target the <html> element for Tailwind dark mode
+        
+        // --- THEME LOGIC (FIXED) ---
+        
+        /**
+         * Applies the specified theme to the document and persists the preference.
+         * Also updates the Three.js scene background.
+         * @param {'light'|'dark'} theme - The theme to apply.
+         */
+        window.applyTheme = function(theme) {
+            const isDark = theme === THEME_CONFIG.darkThemeValue;
+            
+            // 1. Update the <html> element class
+            if (isDark) {
+                htmlEl.classList.add(THEME_CONFIG.darkModeClass);
+            } else {
+                htmlEl.classList.remove(THEME_CONFIG.darkModeClass);
+            }
+            
+            // 2. Persist to localStorage
+            localStorage.setItem(THEME_CONFIG.localStorageKey, theme);
+            
+            // 3. Update CSS Variable for Font
+            document.documentElement.style.setProperty('--primary-font', THEME_CONFIG.primaryFont);
+
+            // 4. Update Three.js Scene Background (if initialized)
+            if (scene && scene.background) {
+                const bgColor = isDark ? THEME_CONFIG.darkBgColor : THEME_CONFIG.lightBgColor;
+                scene.background.setHex(bgColor); 
+            }
+        }
+
+        /**
+         * Initializes the theme on page load based on user preference or a dark default.
+         */
+        function initializeTheme() {
+            const storedTheme = localStorage.getItem(THEME_CONFIG.localStorageKey);
+            
+            // Default to dark mode if no preference is saved
+            const defaultTheme = THEME_CONFIG.darkThemeValue;
+
+            // Apply stored theme, otherwise apply the default dark theme
+            const initialTheme = storedTheme || defaultTheme;
+                                 
+            applyTheme(initialTheme);
+            return initialTheme;
+        }
+        
+        // --- CAROUSEL LOGIC (FIXED) ---
+        let currentSlide = 0;
+        let track, slides, prevBtn, nextBtn; 
+        
+        function setupCarouselElements() {
+             track = document.getElementById('achievement-track');
+             slides = document.querySelectorAll('.card-slide');
+             prevBtn = document.getElementById('prev-achievement');
+             nextBtn = document.getElementById('next-achievement');
+             
+             // Ensure buttons are attached after initialization
+             if (prevBtn && nextBtn) {
+                 prevBtn.onclick = () => moveSlider(-1);
+                 nextBtn.onclick = () => moveSlider(1);
+             }
+        }
+
+        function getSlideMetrics() {
+            const numSlides = slides ? slides.length : 0;
+            const isDesktop = window.innerWidth >= 768;
+            // On desktop, show 2 slides at once. On mobile, show 1.
+            const visibleSlides = isDesktop ? 2 : 1; 
+            // Max index we can scroll to (e.g., 3 slides, 2 visible -> max index is 1)
+            const maxSlide = numSlides > visibleSlides ? numSlides - visibleSlides : 0; 
+            return { numSlides, maxSlide, visibleSlides };
+        }
+
+        function updateCarousel() {
+            if (!track || !slides || slides.length === 0) return;
+            
+            const { numSlides, maxSlide, visibleSlides } = getSlideMetrics();
+            
+            // Keep currentSlide within valid boundaries
+            currentSlide = Math.max(0, Math.min(currentSlide, maxSlide));
+
+            const translatePercentage = (currentSlide * 100) / visibleSlides;
+            track.style.transform = `translateX(-${translatePercentage}%)`;
+
+            // Update button states (Simplified and corrected logic)
+            if (prevBtn && nextBtn) {
+                prevBtn.disabled = currentSlide === 0;
+                nextBtn.disabled = currentSlide >= maxSlide;
+            }
+        }
+        
+        function moveSlider(direction) {
+            const { maxSlide } = getSlideMetrics();
+            let newSlide = currentSlide + direction;
+            currentSlide = Math.max(0, Math.min(newSlide, maxSlide));
+            updateCarousel();
+        }
+        
+        window.moveSlider = moveSlider; 
+
+        window.addEventListener('resize', updateCarousel);
+        
+        
+        // --- SCROLL EFFECT IMPLEMENTATION ---
+        const heroSection = document.querySelector('.hero-container');
+        const root = document.documentElement;
+
+        function updateBackgroundScale() {
+            if (!heroSection) return;
+            const scrollY = window.scrollY;
+            const heroHeight = heroSection.offsetHeight;
+            
+            // Calculate progress from 0 (top) to 1 (bottom of hero)
+            let scrollProgress = Math.min(1, scrollY / heroHeight); 
+            
+            // Scale the background from 1.1 (zoomed in) to 0.9 (zoomed out)
+            const minScale = 0.9;
+            const maxScale = 1.1;
+            const scaleRange = maxScale - minScale;
+            
+            // As scrollProgress increases (0 to 1), newScale decreases (1.1 to 0.9)
+            const newScale = maxScale - (scaleRange * scrollProgress); 
+            
+            root.style.setProperty('--bg-scale', newScale.toFixed(4));
+        }
+
+        window.addEventListener('scroll', updateBackgroundScale);
+        
+        // --- GEMINI API INTEGRATION ---
+        
+        const generateStrategicOverview = async () => {
+            const outputDiv = document.getElementById('overview-output');
+            const button = document.getElementById('generate-overview-btn');
+            const projectDescription = document.getElementById('project-1-description').innerText.trim();
+            
+            // Toggle visibility if already showing
+            if (!outputDiv.classList.contains('hidden') && outputDiv.innerHTML !== 'Loading...') {
+                outputDiv.classList.add('hidden');
+                button.textContent = '✨ Get Leadership Takeaway';
+                return;
+            }
+
+            outputDiv.innerHTML = 'Loading...';
+            outputDiv.classList.remove('hidden');
+            button.disabled = true;
+            button.textContent = 'Generating...';
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const systemPrompt = "You are a highly strategic Vice President of Engineering. Your task is to analyze the provided achievement and generate a concise analysis (3-4 impactful bullet points) focusing on the strategic business value, the technical complexity of the architecture, and its potential for future scalability. Use professional, leadership-level language. Present the response as a single block of text with clear bullet points.";
+            const userQuery = `Analyze the following achievement from a management perspective: "${projectDescription}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            const maxRetries = 3;
+            let responseText = "Error: Could not retrieve strategic overview.";
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        const delay = Math.pow(2, i) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const result = await response.json();
+                    responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || "Error: Generated content was empty.";
+                    break;
+                } catch (error) {
+                    console.error("Gemini API call failed:", error);
+                    if (i === maxRetries - 1) {
+                        responseText = "Error: Failed to connect to AI service. Please try again."; 
+                    }
+                }
+            }
+            
+            outputDiv.innerHTML = responseText.replace(/\n/g, '<br>'); // Replaces newlines with <br> for better HTML formatting
+            button.disabled = false;
+            button.textContent = '✨ Hide Leadership Takeaway';
+        };
+        
+        window.generateStrategicOverview = generateStrategicOverview; 
+
+        // --- THREE.JS 3D BACKGROUND SETUP ---
+        let mouseX = 0, mouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+        const canvas = document.getElementById('three-canvas');
+
+        function createBond(posA, posB, material) {
+            const direction = new THREE.Vector3().subVectors(posB, posA);
+            const orientation = new THREE.Matrix4();
+            orientation.lookAt(posA, posB, new THREE.Vector3(0, 1, 0));
+            orientation.multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+            const edgeGeometry = new THREE.CylinderGeometry(0.05, 0.05, direction.length(), 8);
+            const edge = new THREE.Mesh(edgeGeometry, material);
+            edge.applyMatrix4(orientation);
+            edge.position.copy(new THREE.Vector3().addVectors(posA, posB).divideScalar(2));
+            return edge;
+        }
+
+        function initThree(initialTheme) {
+            scene = new THREE.Scene();
+            
+            // Set initial background color based on the theme loaded in initializeTheme
+            const initialBgColor = initialTheme === THEME_CONFIG.darkThemeValue ? THEME_CONFIG.darkBgColor : THEME_CONFIG.lightBgColor;
+            scene.background = new THREE.Color(initialBgColor); 
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Molecule creation (simplistic representation of an amino acid or similar)
+            molecule = new THREE.Group();
+            const sizes = { C: 0.25, N: 0.20, O: 0.15, H: 0.10 };
+            const materials = {
+                C: new THREE.MeshPhongMaterial({ color: 0x4b5563, shininess: 50 }), // Dark Gray Carbon
+                N: new THREE.MeshPhongMaterial({ color: 0x3b82f6, shininess: 50 }), // Blue Nitrogen
+                O: new THREE.MeshPhongMaterial({ color: 0xef4444, shininess: 50 }), // Red Oxygen
+                H: new THREE.MeshPhongMaterial({ color: 0xf3f4f6, shininess: 50 }), // Light Hydrogen
+                Bond: new THREE.MeshBasicMaterial({ color: 0xd1d5db, transparent: true, opacity: 0.25 }) // Light Gray Bond
+            };
+            const atomGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const bondLength = 1.0;
+            const atomPositions = {
+                CA: new THREE.Vector3(0, 0, 0), // Central Carbon
+                C1: new THREE.Vector3(bondLength, 0, 0), // Carboxyl Carbon
+                O1: new THREE.Vector3(bondLength * 1.5, bondLength * 0.7, 0),
+                O2: new THREE.Vector3(bondLength * 1.5, -bondLength * 0.7, 0),
+                N1: new THREE.Vector3(-bondLength * 1.1, 0, 0.5), // Amino Nitrogen
+                CR: new THREE.Vector3(0, bondLength * 1.1, 0), // R Group (Placeholder)
+            };
+            function addAtom(name, type, position) {
+                const atom = new THREE.Mesh(atomGeometry, materials[type]);
+                atom.scale.setScalar(sizes[type]);
+                atom.position.copy(position);
+                molecule.add(atom);
+            }
+            addAtom('CA', 'C', atomPositions.CA);
+            addAtom('C1', 'C', atomPositions.C1);
+            addAtom('O1', 'O', atomPositions.O1);
+            addAtom('O2', 'O', atomPositions.O2);
+            addAtom('N1', 'N', atomPositions.N1);
+            addAtom('CR', 'C', atomPositions.CR);
+            molecule.add(createBond(atomPositions.CA, atomPositions.C1, materials.Bond));
+            molecule.add(createBond(atomPositions.C1, atomPositions.O1, materials.Bond));
+            molecule.add(createBond(atomPositions.C1, atomPositions.O2, materials.Bond));
+            molecule.add(createBond(atomPositions.CA, atomPositions.N1, materials.Bond));
+            molecule.add(createBond(atomPositions.CA, atomPositions.CR, materials.Bond));
+            const H_Pos = new THREE.Vector3(0, 0, bondLength * 1.1);
+            addAtom('H_CA', 'H', H_Pos);
+            molecule.add(createBond(atomPositions.CA, H_Pos, materials.Bond));
+            molecule.scale.set(1.5, 1.5, 1.5);
+            scene.add(molecule);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight.position.set(5, 5, 5).normalize();
+            scene.add(directionalLight);
+            
+            // Event listeners for camera movement
+            document.addEventListener('mousemove', onDocumentMouseMove);
+            document.addEventListener('touchstart', onDocumentTouchStart);
+            document.addEventListener('touchmove', onDocumentTouchMove);
+            window.addEventListener('resize', onWindowResize);
+            
+            animate();
+        }
+
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            updateCarousel(); 
+        }
+
+        function onDocumentMouseMove(event) {
+            mouseX = (event.clientX - windowHalfX) * 0.005;
+            mouseY = (event.clientY - windowHalfY) * 0.005;
+        }
+
+        function onDocumentTouchStart(event) {
+            if (event.touches.length === 1) {
+                mouseX = (event.touches[0].pageX - windowHalfX) * 0.005;
+                mouseY = (event.touches[0].pageY - windowHalfY) * 0.005;
+            }
+        }
+
+        function onDocumentTouchMove(event) {
+            if (event.touches.length === 1) {
+                event.preventDefault();
+                mouseX = (event.touches[0].pageX - windowHalfX) * 0.005;
+                mouseY = (event.touches[0].pageY - windowHalfY) * 0.005;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            molecule.rotation.x += 0.0005;
+            molecule.rotation.y += 0.001;
+            camera.position.x += (mouseX * 5 - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY * 5 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+            renderer.render(scene, camera);
+        }
+        
+        function initAll() {
+            // 1. Setup carousel elements first
+            setupCarouselElements();
+            
+            // 2. Initialize Theme (must be first as it sets the initial 3D background)
+            const initialTheme = initializeTheme();
+            
+            // 3. Initialize DOM elements and Event Listeners
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+            
+            const lightBtn = document.getElementById('light-theme-btn');
+            const darkBtn = document.getElementById('dark-theme-btn');
+
+            // Attach event listeners (Fixed theme application)
+            if (lightBtn && darkBtn) {
+                lightBtn.addEventListener('click', () => {
+                    applyTheme(THEME_CONFIG.lightThemeValue);
+                });
+
+                darkBtn.addEventListener('click', () => {
+                    applyTheme(THEME_CONFIG.darkThemeValue);
+                });
+            }
+            
+            // 4. Initialize 3D Graphics and UI
+            initThree(initialTheme);
+            updateBackgroundScale();
+            updateCarousel(); 
+        }
+
+        window.onload = initAll;
+    </script>
+</body>
+</html>
